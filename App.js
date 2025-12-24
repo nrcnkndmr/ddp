@@ -16,6 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import { db, storage } from './firebaseConfig';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -40,12 +43,24 @@ function Header({ navigation, title = 'DDP' }) {
 
 function HomeScreen({ navigation }) {
   const { latestPhoto } = React.useContext(PhotoContext);
+  const [feedPhotos, setFeedPhotos] = React.useState([]);
+
+  React.useEffect(() => {
+    const q = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const arr = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setFeedPhotos(arr);
+    }, (err) => console.log('photos snapshot error', err));
+    return unsub;
+  }, []);
   return (
     <View style={styles.container}>
       <Header navigation={navigation} />
       <View style={styles.homeContent}>
         <View style={styles.photoArea}>
-          {latestPhoto ? (
+          {feedPhotos && feedPhotos.length > 0 ? (
+            <Image source={{ uri: feedPhotos[0].url }} style={styles.photo} />
+          ) : latestPhoto ? (
             <Image source={{ uri: latestPhoto }} style={styles.photo} />
           ) : (
             <View style={styles.placeholder}>
@@ -143,7 +158,23 @@ function CameraScreen({ navigation }) {
             // ignore
           }
         }
+        // show local image immediately
         setLatestPhoto(uri);
+        // upload to Firebase Storage and save metadata
+        try {
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          const filename = `photos/${Date.now()}-${Math.random().toString(36).slice(2,9)}.jpg`;
+          const storageRef = ref(storage, filename);
+          await uploadBytes(storageRef, blob);
+          const downloadURL = await getDownloadURL(storageRef);
+          await addDoc(collection(db, 'photos'), { url: downloadURL, createdAt: serverTimestamp() });
+          // update latestPhoto to remote URL
+          setLatestPhoto(downloadURL);
+        } catch (e) {
+          console.log('upload to firebase error', e);
+        }
+
         navigation.navigate('Main', { screen: 'Home' });
       } else {
         console.log('camera cancelled or not available');

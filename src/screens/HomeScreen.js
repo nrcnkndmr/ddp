@@ -12,7 +12,15 @@ export default function HomeScreen({ navigation }) {
   React.useEffect(() => {
     const q = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snapshot) => {
-      const arr = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const arr = snapshot.docs.map((d) => {
+        const data = d.data();
+        // Base64'ü data URI formatına çevir
+        if (data.base64) {
+          const format = data.format || 'jpeg';
+          data.url = `data:image/${format};base64,${data.base64}`;
+        }
+        return { id: d.id, ...data };
+      });
       setFeedPhotos(arr);
     }, (err) => console.log('photos snapshot error', err));
     return unsub;

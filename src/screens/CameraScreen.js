@@ -3,9 +3,9 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import Header from '../components/Header';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { storage, db } from '../../firebaseConfig';
+import { db } from '../../firebaseConfig';
 import { PhotoContext } from '../context/PhotoContext';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -21,10 +21,8 @@ export default function CameraScreen({ navigation }) {
       try {
         result = await ImagePicker.launchCameraAsync({ quality: 0.8, cameraType: cameraType, allowsEditing: false });
       } catch (err) {
-        console.log('launchCameraAsync error', err);
         return;
       }
-      console.log('camera result', result);
       if (!result.canceled) {
         let uri = result.assets && result.assets[0] && result.assets[0].uri;
         if (cameraType === 'front') {
@@ -35,20 +33,32 @@ export default function CameraScreen({ navigation }) {
         }
         setLatestPhoto(uri);
         try {
-          const response = await fetch(uri);
-          const blob = await response.blob();
-          const filename = `photos/${Date.now()}-${Math.random().toString(36).slice(2,9)}.jpg`;
-          const storageRef = ref(storage, filename);
-          await uploadBytes(storageRef, blob);
-          const downloadURL = await getDownloadURL(storageRef);
-          await addDoc(collection(db, 'photos'), { url: downloadURL, createdAt: serverTimestamp() });
-          setLatestPhoto(downloadURL);
+          // Resize ve compress et (Firestore 1MB limit için)
+          const resized = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 800 } }], // Genişliği 800px'e düşür
+            { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          
+          // Base64'e çevir
+          const base64 = await FileSystem.readAsStringAsync(resized.uri, {
+            encoding: 'base64',
+          });
+          
+          // Firestore'a kaydet
+          await addDoc(collection(db, 'photos'), {
+            base64: base64,
+            createdAt: serverTimestamp(),
+            format: 'jpeg'
+          });
+          
+          // Base64 data URI formatında göster
+          const base64Uri = `data:image/jpeg;base64,${base64}`;
+          setLatestPhoto(base64Uri);
         } catch (e) {
-          console.log('upload to firebase error', e);
+          console.error('upload to firebase error', e);
         }
         navigation.navigate('Main', { screen: 'Home' });
-      } else {
-        console.log('camera cancelled or not available');
       }
     };
 

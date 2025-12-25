@@ -16,8 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { db, storage } from './firebaseConfig';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import { db } from './firebaseConfig';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 const Tab = createBottomTabNavigator();
@@ -48,7 +48,15 @@ function HomeScreen({ navigation }) {
   React.useEffect(() => {
     const q = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snapshot) => {
-      const arr = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const arr = snapshot.docs.map((d) => {
+        const data = d.data();
+        // Base64'ü data URI formatına çevir
+        if (data.base64) {
+          const format = data.format || 'jpeg';
+          data.url = `data:image/${format};base64,${data.base64}`;
+        }
+        return { id: d.id, ...data };
+      });
       setFeedPhotos(arr);
     }, (err) => console.log('photos snapshot error', err));
     return unsub;
@@ -131,7 +139,6 @@ function CameraScreen({ navigation }) {
         return;
       }
       let result;
-      console.log('ImagePicker object', Object.keys(ImagePicker));
       try {
         result = await ImagePicker.launchCameraAsync({
           quality: 0.8,
@@ -139,11 +146,8 @@ function CameraScreen({ navigation }) {
           allowsEditing: false,
         });
       } catch (err) {
-        console.log('launchCameraAsync error', err);
         return;
       }
-
-      console.log('camera result', result);
       if (!result.canceled) {
         let uri = result.assets && result.assets[0] && result.assets[0].uri;
         if (cameraType === 'front') {
@@ -160,24 +164,35 @@ function CameraScreen({ navigation }) {
         }
         // show local image immediately
         setLatestPhoto(uri);
-        // upload to Firebase Storage and save metadata
+        // Base64'e çevir ve Firestore'a kaydet
         try {
-          const response = await fetch(uri);
-          const blob = await response.blob();
-          const filename = `photos/${Date.now()}-${Math.random().toString(36).slice(2,9)}.jpg`;
-          const storageRef = ref(storage, filename);
-          await uploadBytes(storageRef, blob);
-          const downloadURL = await getDownloadURL(storageRef);
-          await addDoc(collection(db, 'photos'), { url: downloadURL, createdAt: serverTimestamp() });
-          // update latestPhoto to remote URL
-          setLatestPhoto(downloadURL);
+          // Resize ve compress et (Firestore 1MB limit için)
+          const resized = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 800 } }], // Genişliği 800px'e düşür
+            { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          
+          // Base64'e çevir
+          const base64 = await FileSystem.readAsStringAsync(resized.uri, {
+            encoding: 'base64',
+          });
+          
+          // Firestore'a kaydet
+          await addDoc(collection(db, 'photos'), {
+            base64: base64,
+            createdAt: serverTimestamp(),
+            format: 'jpeg'
+          });
+          
+          // Base64 data URI formatında göster
+          const base64Uri = `data:image/jpeg;base64,${base64}`;
+          setLatestPhoto(base64Uri);
         } catch (e) {
-          console.log('upload to firebase error', e);
+          console.error('upload to firebase error', e);
         }
 
         navigation.navigate('Main', { screen: 'Home' });
-      } else {
-        console.log('camera cancelled or not available');
       }
     };
 

@@ -13,7 +13,12 @@ export default function Header({ navigation, title = 'DDP' }) {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 6 }}>
         <View style={{ width: 40 }} />
         <Text style={{ fontSize: 18, fontWeight: '700', color: theme.button }}>{title}</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('Settings')}
+          style={{ width: 40, alignItems: 'center' }}
+        >
+          <Ionicons name="settings-outline" size={24} color={theme.text} />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

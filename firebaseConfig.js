@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,6 +21,20 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Enable offline persistence for web
+if (Platform.OS === 'web') {
+  enableMultiTabIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      // Multiple tabs open, fallback to single tab
+      enableIndexedDbPersistence(db).catch((error) => {
+        console.log('Persistence error:', error.code);
+      });
+    } else if (err.code === 'unimplemented') {
+      console.log('Persistence not available');
+    }
+  });
+}
 
 // Try to register native auth component at module load (RN) if available
 if (Platform.OS !== 'web') {

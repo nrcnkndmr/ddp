@@ -13,8 +13,42 @@
         {
           "cameraPermission": "Fotoğraf çekmek için kameraya erişim gerekiyor"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Oyun için konum bilgisi gerekiyor"
+        }
       ]
     ],
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.mvlt.ddp"
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -25,20 +59,10 @@
       "bundleIdentifier": "com.mvlt.ddp",
       "infoPlist": {
         "NSCameraUsageDescription": "Fotoğraf çekmek için kameraya erişim gerekiyor",
-        "NSPhotoLibraryUsageDescription": "Fotoğraf seçmek için galeriye erişim gerekiyor"
+        "NSPhotoLibraryUsageDescription": "Fotoğraf seçmek için galeriye erişim gerekiyor",
+        "NSLocationWhenInUseUsageDescription": "Oyun için konum bilgisi gerekiyor",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Oyun için konum bilgisi gerekiyor"
       }
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

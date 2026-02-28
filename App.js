@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
 import { PhotoContext } from './src/context/PhotoContext';
 import { ThemeProvider, ThemeContext } from './src/context/ThemeContext';
+import { RollingProvider, RollingContext } from './src/context/RollingContext';
+import { GameProvider } from './src/context/GameContext';
 import { db } from './firebaseConfig';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import AuthScreen from './src/screens/AuthScreen';
@@ -18,6 +20,7 @@ import UserProfileScreen from './src/screens/UserProfileScreen';
 import PhotoDetailScreen from './src/screens/PhotoDetailScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import NotificationScreen from './src/screens/NotificationScreen';
+import GameMapScreen from './src/screens/GameMapScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -29,6 +32,7 @@ function HomeStack() {
       <Stack.Screen name="HomeFeed" component={HomeScreen} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
       <Stack.Screen name="PhotoDetail" component={PhotoDetailScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );
 }
@@ -40,6 +44,7 @@ function ProfileStack() {
       <Stack.Screen name="ProfileMain" component={ProfileScreen} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
       <Stack.Screen name="PhotoDetail" component={PhotoDetailScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );
 }
@@ -51,6 +56,17 @@ function NotificationStack() {
       <Stack.Screen name="NotificationFeed" component={NotificationScreen} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
       <Stack.Screen name="PhotoDetail" component={PhotoDetailScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// GameMap tab için stack navigator
+function GameMapStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="GameMapMain" component={GameMapScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );
 }
@@ -58,6 +74,7 @@ function NotificationStack() {
 function Tabs() {
   const { theme } = React.useContext(ThemeContext);
   const { user } = React.useContext(AuthContext);
+  const { isRolling } = React.useContext(RollingContext);
   const [unreadCount, setUnreadCount] = React.useState(0);
 
   // Okunmamış bildirim sayısını dinle
@@ -81,6 +98,7 @@ function Tabs() {
   
   return (
     <Tab.Navigator
+      initialRouteName="Home"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: theme.tabBarActive,
@@ -107,6 +125,8 @@ function Tabs() {
             iconName = focused ? 'dice' : 'dice-outline';
           } else if (route.name === 'Camera') {
             iconName = focused ? 'camera' : 'camera-outline';
+          } else if (route.name === 'GameMap') {
+            iconName = focused ? 'map' : 'map-outline';
           } else if (route.name === 'Notifications') {
             iconName = focused ? 'notifications' : 'notifications-outline';
           } else if (route.name === 'Profile') {
@@ -115,10 +135,16 @@ function Tabs() {
             iconName = focused ? 'settings' : 'settings-outline';
           }
           
-          // Kamera özel tasarım - Kabarık yuvarlak
-          if (route.name === 'Camera') {
+          // Merkez özel tasarım - Kabarık yuvarlak
+          if (route.name === 'Home') {
             return (
-              <View style={[styles.cameraButton, { backgroundColor: theme.button }]}>
+              <View style={[
+                styles.cameraButton, 
+                { 
+                  backgroundColor: theme.button,
+                  opacity: isRolling ? 0.5 : 1,
+                }
+              ]}>
                 <Ionicons name={iconName} size={30} color="#FFF" />
               </View>
             );
@@ -142,11 +168,11 @@ function Tabs() {
         },
       })}
     >
+      <Tab.Screen name="Camera" component={CameraScreen} options={{ tabBarLabel: 'Kamera' }} />
+      <Tab.Screen name="GameMap" component={GameMapStack} options={{ tabBarLabel: 'Oyun' }} />
       <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Ana Sayfa' }} />
       <Tab.Screen name="Notifications" component={NotificationStack} options={{ tabBarLabel: 'Bildirimler' }} />
-      <Tab.Screen name="Camera" component={CameraScreen} options={{ tabBarLabel: 'Kamera' }} />
       <Tab.Screen name="Profile" component={ProfileStack} options={{ tabBarLabel: 'Profil' }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: 'Ayarlar' }} />
     </Tab.Navigator>
   );
 }
@@ -190,7 +216,11 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <MainApp />
+        <GameProvider>
+          <RollingProvider>
+            <MainApp />
+          </RollingProvider>
+        </GameProvider>
       </AuthProvider>
     </ThemeProvider>
   );

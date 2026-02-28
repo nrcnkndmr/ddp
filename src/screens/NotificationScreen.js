@@ -19,6 +19,7 @@ import Header from '../components/Header';
 function NotificationItem({ item, theme, onPress, onMarkAsUnread, onDelete }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const [isSwipeOpen, setIsSwipeOpen] = useState(false);
+  const isSwipeOpenRef = useRef(false);
   const SWIPE_THRESHOLD = 60; // Açılma için gereken minimum mesafe
   const SWIPE_MAX = 140; // Maksimum kaydırma
   const VELOCITY_THRESHOLD = 0.3; // Hızlı swipe için eşik
@@ -31,30 +32,42 @@ function NotificationItem({ item, theme, onPress, onMarkAsUnread, onDelete }) {
         // Yatay kaydırmada çalış, dikey kaydırmayı engelle
         const isHorizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
         const hasMoved = Math.abs(gestureState.dx) > 8;
+        
+        // Açıkken sola kaydırmaya çalışırsa PanResponder'ı aktif etme
+        if (isSwipeOpenRef.current && gestureState.dx < 0) {
+          return false;
+        }
+        
+        // Kapalıyken sağa kaydırmaya çalışırsa PanResponder'ı aktif etme
+        if (!isSwipeOpenRef.current && gestureState.dx > 0) {
+          return false;
+        }
+        
         return isHorizontal && hasMoved;
       },
       onPanResponderGrant: () => {
-        translateX.setOffset(translateX._value);
-        translateX.setValue(0);
+        // Offset kullanmadan, mevcut değeri kaydet
       },
       onPanResponderMove: (evt, gestureState) => {
-        // Açıkken: hem sağa hem sola kaydırabilir
-        // Kapalıyken: sadece sola kaydırabilir
-        if (isSwipeOpen) {
-          // Açıkken: -140'dan başlayıp 0'a kadar sağa kaydırabilir
-          const newValue = Math.max(-SWIPE_MAX, Math.min(0, gestureState.dx));
-          translateX.setValue(newValue);
+        // Kapalıyken: sadece sola kaydırabilir (0'dan -140'a)
+        // Açıkken: sadece sağa kaydırabilir (-140'dan 0'a) ve orijinal konuma dönünce durur
+        if (isSwipeOpenRef.current) {
+          // Açıkken: sadece sağa kaydırmaya izin ver (pozitif dx)
+          if (gestureState.dx > 0) {
+            const newValue = Math.max(-SWIPE_MAX, Math.min(0, -SWIPE_MAX + gestureState.dx));
+            translateX.setValue(newValue);
+          }
+          // Sola kaydırmaya çalışırsa hiçbir şey yapma (ignore)
         } else {
-          // Kapalıyken: 0'dan başlayıp -140'a kadar sola kaydırabilir
+          // Kapalıyken: sadece sola kaydırmaya izin ver (negatif dx)
           if (gestureState.dx < 0) {
             const newValue = Math.max(-SWIPE_MAX, gestureState.dx);
             translateX.setValue(newValue);
           }
+          // Sağa kaydırmaya çalışırsa hiçbir şey yapma (ignore)
         }
       },
       onPanResponderRelease: (evt, gestureState) => {
-        translateX.flattenOffset();
-        
         const currentValue = translateX._value;
         const velocity = gestureState.vx;
         
@@ -107,6 +120,7 @@ function NotificationItem({ item, theme, onPress, onMarkAsUnread, onDelete }) {
       tension: 40,
     }).start();
     setIsSwipeOpen(true);
+    isSwipeOpenRef.current = true;
   };
 
   const animateToClose = () => {
@@ -117,6 +131,7 @@ function NotificationItem({ item, theme, onPress, onMarkAsUnread, onDelete }) {
       tension: 40,
     }).start();
     setIsSwipeOpen(false);
+    isSwipeOpenRef.current = false;
   };
 
   // Bildirim tipine göre ikon
@@ -200,12 +215,9 @@ function NotificationItem({ item, theme, onPress, onMarkAsUnread, onDelete }) {
             { borderBottomColor: theme.border },
           ]}
           activeOpacity={0.7}
+          disabled={isSwipeOpen}
           onPress={() => {
-            if (isSwipeOpen) {
-              animateToClose();
-            } else {
-              onPress(item);
-            }
+            onPress(item);
           }}
           > 
           <View

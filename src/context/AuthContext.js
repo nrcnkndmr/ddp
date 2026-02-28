@@ -197,7 +197,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const registerWithEmail = async (email, password, username = '', birthday = 0, gender = 0) => {
+  const registerWithEmail = async (email, password, username = '', team = null) => {
     try {
       // Basic validation
       if (!email || !password) throw new Error('Email and password are required');
@@ -213,8 +213,7 @@ export function AuthProvider({ children }) {
           oid: uid,
           mail: email,
           username: username || '',
-          birthday: Number(birthday) || 0,
-          gender: Number(gender) || 0,
+          team: team || null,
           createdAt: Date.now()
         };
 
@@ -249,8 +248,7 @@ export function AuthProvider({ children }) {
         oid: uid,
         mail: email,
         username: username || '',
-        birthday: Number(birthday) || 0,
-        gender: Number(gender) || 0,
+        team: team || null,
         createdAt: Date.now()
       };
 

@@ -19,6 +19,7 @@ export default function AuthScreen() {
   const [parola, setParola] = useState('');
   const [parolaTekrar, setParolaTekrar] = useState('');
   const [sozlesmeKabul, setSozlesmeKabul] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState(null);
   const [buttonPosition] = useState(new Animated.Value(0));
   
   // Şifre görünürlüğü state'leri
@@ -175,6 +176,11 @@ export default function AuthScreen() {
       return;
     }
 
+    if (!selectedTeam) {
+      alert('Lütfen bir takım seçin');
+      return;
+    }
+
     if (parola !== parolaTekrar) {
       alert('Parolalar eşleşmiyor');
       return;
@@ -188,7 +194,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       const displayName = `${ad} ${soyad}`;
-      await registerWithEmail(email, parola, displayName);
+      await registerWithEmail(email, parola, displayName, selectedTeam);
     } catch (error) {
       console.error('Register failed:', error);
       let errorMessage = 'Kayıt olunamadı';
@@ -450,6 +456,61 @@ export default function AuthScreen() {
                   />
                 </TouchableOpacity>
               </View>
+              
+              {/* Takım Seçimi */}
+              <View style={styles.teamSelectionContainer}>
+                <Text style={styles.teamLabel}>Takım Seçin</Text>
+                <View style={styles.teamsRow}>
+                  <TouchableOpacity
+                    style={[styles.teamButton, selectedTeam === 'blue' && styles.teamButtonSelected]}
+                    onPress={() => setSelectedTeam('blue')}
+                  >
+                    <View style={[styles.teamCircle, { backgroundColor: '#3B82F6' }]}>
+                      {selectedTeam === 'blue' && (
+                        <Ionicons name="checkmark" size={24} color="#fff" />
+                      )}
+                    </View>
+                    <Text style={styles.teamName}>Mavi</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.teamButton, selectedTeam === 'yellow' && styles.teamButtonSelected]}
+                    onPress={() => setSelectedTeam('yellow')}
+                  >
+                    <View style={[styles.teamCircle, { backgroundColor: '#FCD34D' }]}>
+                      {selectedTeam === 'yellow' && (
+                        <Ionicons name="checkmark" size={24} color="#fff" />
+                      )}
+                    </View>
+                    <Text style={styles.teamName}>Sarı</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.teamButton, selectedTeam === 'red' && styles.teamButtonSelected]}
+                    onPress={() => setSelectedTeam('red')}
+                  >
+                    <View style={[styles.teamCircle, { backgroundColor: '#EF4444' }]}>
+                      {selectedTeam === 'red' && (
+                        <Ionicons name="checkmark" size={24} color="#fff" />
+                      )}
+                    </View>
+                    <Text style={styles.teamName}>Kırmızı</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.teamButton, selectedTeam === 'green' && styles.teamButtonSelected]}
+                    onPress={() => setSelectedTeam('green')}
+                  >
+                    <View style={[styles.teamCircle, { backgroundColor: '#10B981' }]}>
+                      {selectedTeam === 'green' && (
+                        <Ionicons name="checkmark" size={24} color="#fff" />
+                      )}
+                    </View>
+                    <Text style={styles.teamName}>Yeşil</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
               <TouchableOpacity
                 style={styles.checkboxContainer}
                 onPress={() => setSozlesmeKabul(!sozlesmeKabul)}
@@ -675,6 +736,60 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     backgroundColor: '#ff9fcf',
     opacity: 0.6,
+  },
+  teamSelectionContainer: {
+    width: '100%',
+    maxWidth: 300,
+    marginBottom: 20,
+    marginTop: 8,
+  },
+  teamLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 12,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  teamsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  teamButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  teamButtonSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  teamCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  teamName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

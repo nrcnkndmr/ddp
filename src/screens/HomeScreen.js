@@ -1,22 +1,56 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, SafeAreaView, ScrollView, RefreshControl } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, SafeAreaView, ScrollView, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { db } from '../../firebaseConfig';
 import { collection, query, orderBy, onSnapshot, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { PhotoContext } from '../context/PhotoContext';
 import { AuthContext } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext';
+import { RollingContext } from '../context/RollingContext';
 import Header from '../components/Header';
 
 export default function HomeScreen({ navigation }) {
   const { latestPhoto } = React.useContext(PhotoContext);
   const { user } = React.useContext(AuthContext);
   const { theme, isDark } = React.useContext(ThemeContext);
+  const { setIsRolling: setIsRollingContext } = React.useContext(RollingContext);
   const [feedPhotos, setFeedPhotos] = React.useState([]);
   const [randomPhoto, setRandomPhoto] = React.useState(null);
   const [photoOwner, setPhotoOwner] = React.useState(null);
-  const [refreshing, setRefreshing] = React.useState(false);
+  const [displayedPhoto, setDisplayedPhoto] = React.useState(null);
+  const [displayedOwner, setDisplayedOwner] = React.useState(null);
   const viewedPhotos = React.useRef(new Set());
+  const imageOpacity = React.useRef(new Animated.Value(1)).current;
+  const pendingPhoto = React.useRef(null);
+  const pendingOwner = React.useRef(null);
+  const isRolling = React.useRef(false);
+  const hasInitialPhoto = React.useRef(false);
+
+  // Dice button press handler
+  React.useEffect(() => {
+    const unsubscribe = navigation.getParent()?.addListener('tabPress', (e) => {
+      if (navigation.isFocused() && feedPhotos.length > 0 && !isRolling.current) {
+        isRolling.current = true;
+        setIsRollingContext(true);
+        
+        // Filter out current photo and select from remaining
+        let availablePhotos = feedPhotos;
+        if (displayedPhoto && feedPhotos.length > 1) {
+          availablePhotos = feedPhotos.filter(photo => photo.id !== displayedPhoto.id);
+        }
+        
+        const randomIndex = Math.floor(Math.random() * availablePhotos.length);
+        setRandomPhoto(availablePhotos[randomIndex]);
+        
+        // Release lock after transition completes
+        setTimeout(() => {
+          isRolling.current = false;
+          setIsRollingContext(false);
+        }, 400);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, feedPhotos, setIsRollingContext, displayedPhoto]);
 
   React.useEffect(() => {
     const q = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
@@ -30,7 +64,8 @@ export default function HomeScreen({ navigation }) {
         return { id: d.id, ...data };
       });
       setFeedPhotos(arr);
-      if (arr.length > 0) {
+      if (arr.length > 0 && !hasInitialPhoto.current) {
+        hasInitialPhoto.current = true;
         const randomIndex = Math.floor(Math.random() * arr.length);
         setRandomPhoto(arr[randomIndex]);
       }
@@ -39,20 +74,30 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   React.useEffect(() => {
+    if (!randomPhoto) return;
+    
+    // Store pending photo
+    pendingPhoto.current = randomPhoto;
+    
     const fetchPhotoOwner = async () => {
-      if (randomPhoto && randomPhoto.userId) {
+      if (randomPhoto.userId) {
         try {
           const userDoc = await getDoc(doc(db, 'users', randomPhoto.userId));
           if (userDoc.exists()) {
-            setPhotoOwner(userDoc.data());
+            pendingOwner.current = userDoc.data();
           } else {
-            // Eğer users koleksiyonunda yoksa, default username
-            setPhotoOwner({ username: 'ddp_user' });
+            pendingOwner.current = { username: 'ddp_user' };
           }
         } catch (err) {
           console.error('Error fetching user:', err);
-          setPhotoOwner({ username: 'ddp_user' });
+          pendingOwner.current = { username: 'ddp_user' };
         }
+      }
+      
+      // Set initial displayed photo and owner after fetching
+      if (!displayedPhoto) {
+        setDisplayedPhoto(randomPhoto);
+        setDisplayedOwner(pendingOwner.current);
       }
     };
     
@@ -72,24 +117,9 @@ export default function HomeScreen({ navigation }) {
     
     fetchPhotoOwner();
     incrementViewCount();
-  }, [randomPhoto]);
+  }, [randomPhoto, displayedPhoto]);
 
-  const displayPhoto = randomPhoto || (latestPhoto ? { url: latestPhoto } : null);
-
-  const handleRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    
-    // Yeni bir random foto seç
-    if (feedPhotos.length > 0) {
-      const randomIndex = Math.floor(Math.random() * feedPhotos.length);
-      setRandomPhoto(feedPhotos[randomIndex]);
-    }
-    
-    // Kısa bir bekleme (görsel feedback için)
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 500);
-  }, [feedPhotos]);
+  const displayPhoto = displayedPhoto || (latestPhoto ? { url: latestPhoto } : null);
 
   const handleUserPress = () => {
     if (randomPhoto && randomPhoto.userId) {
@@ -109,21 +139,12 @@ export default function HomeScreen({ navigation }) {
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[isDark ? '#ff4da6' : theme.button]}
-            tintColor={isDark ? '#ff4da6' : theme.button}
-            progressBackgroundColor={theme.card}
-          />
-        }
       >
         <View style={styles.homeContent}>
           <View style={[styles.photoArea, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           {displayPhoto ? (
             <>
-              {photoOwner && (
+              {displayedOwner && (
                 <TouchableOpacity 
                   style={[styles.photoHeader, { backgroundColor: theme.card, borderBottomColor: theme.cardBorder }]}
                   onPress={handleUserPress}
@@ -132,7 +153,7 @@ export default function HomeScreen({ navigation }) {
                   <View style={styles.userAvatar}>
                     <Text style={styles.avatarText}>
                       {(() => {
-                        const name = photoOwner.username || 'D';
+                        const name = displayedOwner.username || 'D';
                         const parts = name.trim().split(' ');
                         if (parts.length === 1) {
                           return parts[0].slice(0, 2).toUpperCase();
@@ -141,7 +162,7 @@ export default function HomeScreen({ navigation }) {
                       })()}
                     </Text>
                   </View>
-                  <Text style={[styles.username, { color: theme.text }]}>{photoOwner.username || 'ddp_user'}</Text>
+                  <Text style={[styles.username, { color: theme.text }]}>{displayedOwner.username || 'ddp_user'}</Text>
                   
                   <View style={styles.viewCountContainer}>
                     <Ionicons name="eye" size={18} color={theme.subText} />
@@ -151,7 +172,38 @@ export default function HomeScreen({ navigation }) {
                   </View>
                 </TouchableOpacity>
               )}
-              <Image source={{ uri: displayPhoto.url }} style={styles.photo} />
+              <Animated.Image 
+                key={displayPhoto.url}
+                source={{ uri: displayPhoto.url }} 
+                style={[styles.photo, { opacity: imageOpacity }]}
+              />
+              <Image 
+                source={{ uri: pendingPhoto.current?.url || displayPhoto.url }}
+                style={{ width: 0, height: 0, position: 'absolute' }}
+                onLoad={() => {
+                  // Only update if this is a new photo
+                  if (pendingPhoto.current && pendingPhoto.current.id !== displayPhoto.id) {
+                    // Fade out current
+                    Animated.timing(imageOpacity, {
+                      toValue: 0,
+                      duration: 120,
+                      useNativeDriver: true,
+                    }).start(() => {
+                      // Switch to new photo and owner together
+                      setDisplayedPhoto(pendingPhoto.current);
+                      setDisplayedOwner(pendingOwner.current);
+                      // Fade in new
+                      setTimeout(() => {
+                        Animated.timing(imageOpacity, {
+                          toValue: 1,
+                          duration: 250,
+                          useNativeDriver: true,
+                        }).start();
+                      }, 30);
+                    });
+                  }
+                }}
+              />
             </>
           ) : (
             <View style={styles.placeholder}>
